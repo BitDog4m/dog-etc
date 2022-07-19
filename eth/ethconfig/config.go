@@ -28,9 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
-	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/consensus/lyra2"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
@@ -239,12 +237,14 @@ func CreateConsensusEngine(stack *node.Node, chainConfig ctypes.ChainConfigurato
 	// If proof-of-authority is requested, set it up
 	var engine consensus.Engine
 	if chainConfig.GetConsensusEngineType().IsClique() {
-		engine = clique.New(&ctypes.CliqueConfig{
-			Period: chainConfig.GetCliquePeriod(),
-			Epoch:  chainConfig.GetCliqueEpoch(),
-		}, db)
+		log.Crit("No Implementation")
+		//engine = clique.New(&ctypes.CliqueConfig{
+		//	Period: chainConfig.GetCliquePeriod(),
+		//	Epoch:  chainConfig.GetCliqueEpoch(),
+		//}, db)
 	} else if chainConfig.GetConsensusEngineType().IsLyra2() {
-		engine = lyra2.New(notify, noverify)
+		log.Crit("No Implementation")
+		// engine = lyra2.New(notify, noverify)
 	} else {
 		// Otherwise assume proof-of-work
 		switch config.PowMode {

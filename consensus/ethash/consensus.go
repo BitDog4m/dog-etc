@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	"runtime"
 	"time"
@@ -531,7 +532,17 @@ func (ethash *Ethash) verifySeal(chain consensus.ChainHeaderReader, header *type
 	if fulldag {
 		dataset := ethash.dataset(number, true)
 		if dataset.generated() {
-			digest, result = hashimotoFull(dataset.dataset, ethash.SealHash(header).Bytes(), header.Nonce.Uint64())
+
+			powHash := ethash.SealHash(header)
+
+			digest, result = hashimotoFull(dataset.dataset, powHash.Bytes(), header.Nonce.Uint64())
+
+			ethash.config.Log.Info("verify submit work",
+				"powHash", powHash.Hex(),
+				"nonce", header.Nonce.Uint64(),
+				"digest", header.MixDigest.Hex(),
+				"digestResult", hexutil.Encode(digest),
+				"target", hexutil.Encode(result))
 
 			// Datasets are unmapped in a finalizer. Ensure that the dataset stays alive
 			// until after the call to hashimotoFull so it's not unmapped while being used.
@@ -622,3 +633,63 @@ func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
 	hasher.Sum(hash[:0])
 	return hash
 }
+
+// SealHashNoExtra returns the hash of a block prior to it being sealed.
+func (ethash *Ethash) SealHashNoExtra(header *types.Header) (hash common.Hash) {
+	hasher := sha3.NewLegacyKeccak256()
+
+	enc := []interface{}{
+		header.ParentHash,
+		header.UncleHash,
+		header.Coinbase,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.Difficulty,
+		header.Number,
+		header.GasLimit,
+		header.GasUsed,
+		header.Time,
+	}
+	if header.BaseFee != nil {
+		enc = append(enc, header.BaseFee)
+	}
+	rlp.Encode(hasher, enc)
+	hasher.Sum(hash[:0])
+	return hash
+}
+
+// Some weird constants to avoid constant memory allocs for them.
+//var (
+//	big8  = big.NewInt(8)
+//	big32 = big.NewInt(32)
+//)
+
+// AccumulateRewards credits the coinbase of the given block with the mining
+// reward. The total reward consists of the static block reward and rewards for
+// included uncles. The coinbase of each uncle block is also rewarded.
+//func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
+//	// Select the correct block reward based on chain progression
+//	blockReward := FrontierBlockReward
+//	if config.IsByzantium(header.Number) {
+//		blockReward = ByzantiumBlockReward
+//	}
+//	if config.IsConstantinople(header.Number) {
+//		blockReward = ConstantinopleBlockReward
+//	}
+//	// Accumulate the rewards for the miner and any included uncles
+//	reward := new(big.Int).Set(blockReward)
+//	r := new(big.Int)
+//	for _, uncle := range uncles {
+//		r.Add(uncle.Number, big8)
+//		r.Sub(r, header.Number)
+//		r.Mul(r, blockReward)
+//		r.Div(r, big8)
+//		state.AddBalance(uncle.Coinbase, r)
+//
+//		r.Div(blockReward, big32)
+//		reward.Add(reward, r)
+//	}
+//	state.AddBalance(header.Coinbase, reward)
+//}
