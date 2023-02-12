@@ -58,6 +58,7 @@ type ExecutionResult struct {
 	Rejected    []*rejectedTx         `json:"rejected,omitempty"`
 	Difficulty  *math.HexOrDecimal256 `json:"currentDifficulty" gencodec:"required"`
 	GasUsed     math.HexOrDecimal64   `json:"gasUsed"`
+	BaseFee     *math.HexOrDecimal256 `json:"currentBaseFee,omitempty"`
 }
 
 type ommer struct {
@@ -102,7 +103,6 @@ type rejectedTx struct {
 func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig ctypes.ChainConfigurator,
 	txs types.Transactions, miningReward int64,
 	getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.EVMLogger, err error)) (*state.StateDB, *ExecutionResult, error) {
-
 	// Capture errors for BLOCKHASH operation, if we haven't been supplied the
 	// required blockhashes
 	var hashError error
@@ -274,12 +274,13 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig ctypes.ChainConfigura
 		Rejected:    rejectedTxs,
 		Difficulty:  (*math.HexOrDecimal256)(vmContext.Difficulty),
 		GasUsed:     (math.HexOrDecimal64)(gasUsed),
+		BaseFee:     (*math.HexOrDecimal256)(vmContext.BaseFee),
 	}
 	return statedb, execRs, nil
 }
 
 func MakePreState(db ethdb.Database, accounts genesisT.GenesisAlloc) *state.StateDB {
-	sdb := state.NewDatabase(db)
+	sdb := state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true})
 	statedb, _ := state.New(common.Hash{}, sdb, nil)
 	for addr, a := range accounts {
 		statedb.SetCode(addr, a.Code)

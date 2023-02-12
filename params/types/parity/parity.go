@@ -68,6 +68,11 @@ type ParityChainSpec struct {
 				// the network that triggers the consensus upgrade.
 				TerminalTotalDifficulty *math.HexOrDecimal256 `json:"terminalTotalDifficulty,omitempty"`
 
+				// TerminalTotalDifficultyPassed is a flag specifying that the network already
+				// passed the terminal total difficulty. Its purpose is to disable legacy sync
+				// even without having seen the TTD locally (safer long term).
+				TerminalTotalDifficultyPassed bool `json:"terminalTotalDifficultyPassed,omitempty"`
+
 				// Note: DAO fields will NOT be written to Parity configs from multi-geth.
 				// The chains with DAO settings are already canonical and have existing chainspecs.
 				// There is no need to replicate this information.
@@ -134,6 +139,7 @@ type ParityChainSpec struct {
 		EIP3541Transition         *ParityU64 `json:"eip3541Transition,omitempty"`  // FIXME, when and if i'm implemented in Parity
 		EIP3529Transition         *ParityU64 `json:"eip3529Transition,omitempty"`  // FIXME, when and if i'm implemented in Parity
 		EIP4399Transition         *ParityU64 `json:"eip4399Transition,omitempty"`  // FIXME, when and if i'm implemented in Parity
+		TheMerge                  *ParityU64 `json:"theMergeTransition,omitempty"` // FIXME, when and if i'm implemented in Parity
 		ECIP1080Transition        *ParityU64 `json:"ecip1080Transition,omitempty"` // FIXME, when and if i'm implemented in Parity
 		Lyra2NonceTransition      *ParityU64 `json:"lyra2NonceTransition,omitempty"`
 
@@ -297,7 +303,6 @@ type ParityChainSpecPricingPrice struct {
 }
 
 func (p *ParityChainSpecPricingMaybe) UnmarshalJSON(input []byte) error {
-
 	// If old schema structure with "pricing" field
 	pricing := ParityChainSpecPricing{}
 	err := json.Unmarshal(input, &pricing)

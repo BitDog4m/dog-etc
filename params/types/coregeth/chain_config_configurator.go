@@ -498,6 +498,15 @@ func (c *CoreGethChainConfig) SetEIP4399Transition(n *uint64) error {
 	return nil
 }
 
+func (c *CoreGethChainConfig) GetMergeVirtualTransition() *uint64 {
+	return bigNewU64(c.MergeNetsplitVBlock)
+}
+
+func (c *CoreGethChainConfig) SetMergeVirtualTransition(n *uint64) error {
+	c.MergeNetsplitVBlock = setBig(c.MergeNetsplitVBlock, n)
+	return nil
+}
+
 func (c *CoreGethChainConfig) IsEnabled(fn func() *uint64, n *big.Int) bool {
 	f := fn()
 	if f == nil || n == nil {
@@ -569,6 +578,15 @@ func (c *CoreGethChainConfig) GetEthashTerminalTotalDifficulty() *big.Int {
 
 func (c *CoreGethChainConfig) SetEthashTerminalTotalDifficulty(n *big.Int) error {
 	c.TerminalTotalDifficulty = n
+	return nil
+}
+
+func (c *CoreGethChainConfig) GetEthashTerminalTotalDifficultyPassed() bool {
+	return c.TerminalTotalDifficultyPassed
+}
+
+func (c *CoreGethChainConfig) SetEthashTerminalTotalDifficultyPassed(t bool) error {
+	c.TerminalTotalDifficultyPassed = t
 	return nil
 }
 
@@ -993,14 +1011,36 @@ func (c *CoreGethChainConfig) GetEthashEIP5133Transition() *uint64 {
 	if c.GetConsensusEngineType() != ctypes.ConsensusEngineT_Ethash {
 		return nil
 	}
-	return bigNewU64(c.EIP5133FBlock)
+	if c.eip5133Inferred {
+		return bigNewU64(c.EIP5133FBlock)
+	}
+
+	var diffN *uint64
+	defer func() {
+		c.EIP5133FBlock = setBig(c.EIP5133FBlock, diffN)
+		c.eip5133Inferred = true
+	}()
+
+	// Get block number (key) from map where EIP5133 criteria is met.
+	diffN = ctypes.MapMeetsSpecification(c.DifficultyBombDelaySchedule, nil, vars.EIP5133DifficultyBombDelay, nil)
+	return diffN
 }
 
 func (c *CoreGethChainConfig) SetEthashEIP5133Transition(n *uint64) error {
 	if c.Ethash == nil {
 		return ctypes.ErrUnsupportedConfigFatal
 	}
+
 	c.EIP5133FBlock = setBig(c.EIP5133FBlock, n)
+	c.eip5133Inferred = true
+
+	if n == nil {
+		return nil
+	}
+
+	c.ensureExistingDifficultySchedule()
+	c.DifficultyBombDelaySchedule.SetValueTotalForHeight(n, vars.EIP5133DifficultyBombDelay)
+
 	return nil
 }
 

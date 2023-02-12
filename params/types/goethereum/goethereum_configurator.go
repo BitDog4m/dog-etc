@@ -526,6 +526,15 @@ func (c *ChainConfig) SetEIP4399Transition(n *uint64) error {
 	return ctypes.ErrUnsupportedConfigNoop
 }
 
+func (c *ChainConfig) GetMergeVirtualTransition() *uint64 {
+	return bigNewU64(c.MergeNetsplitBlock)
+}
+
+func (c *ChainConfig) SetMergeVirtualTransition(n *uint64) error {
+	c.MergeNetsplitBlock = setBig(c.MergeNetsplitBlock, n)
+	return nil
+}
+
 func (c *ChainConfig) IsEnabled(fn func() *uint64, n *big.Int) bool {
 	f := fn()
 	if f == nil || n == nil {
@@ -598,6 +607,15 @@ func (c *ChainConfig) SetEthashTerminalTotalDifficulty(n *big.Int) error {
 		return nil
 	}
 	c.TerminalTotalDifficulty = new(big.Int).Set(n)
+	return nil
+}
+
+func (c *ChainConfig) GetEthashTerminalTotalDifficultyPassed() bool {
+	return c.TerminalTotalDifficultyPassed
+}
+
+func (c *ChainConfig) SetEthashTerminalTotalDifficultyPassed(t bool) error {
+	c.TerminalTotalDifficultyPassed = t
 	return nil
 }
 

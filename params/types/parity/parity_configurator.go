@@ -738,6 +738,15 @@ func (spec *ParityChainSpec) SetEthashTerminalTotalDifficulty(n *big.Int) error 
 	return nil
 }
 
+func (spec *ParityChainSpec) GetEthashTerminalTotalDifficultyPassed() bool {
+	return spec.Engine.Ethash.Params.TerminalTotalDifficultyPassed
+}
+
+func (spec *ParityChainSpec) SetEthashTerminalTotalDifficultyPassed(t bool) error {
+	spec.Engine.Ethash.Params.TerminalTotalDifficultyPassed = t
+	return nil
+}
+
 // IsTerminalPoWBlock returns whether the given block is the last block of PoW stage.
 func (spec *ParityChainSpec) IsTerminalPoWBlock(parentTotalDiff *big.Int, totalDiff *big.Int) bool {
 	terminalTotalDifficulty := spec.GetEthashTerminalTotalDifficulty()
@@ -1208,6 +1217,15 @@ func (spec *ParityChainSpec) GetEIP4399Transition() *uint64 {
 
 func (spec *ParityChainSpec) SetEIP4399Transition(n *uint64) error {
 	spec.Params.EIP4399Transition = new(ParityU64).SetUint64(n)
+	return nil
+}
+
+func (spec *ParityChainSpec) GetMergeVirtualTransition() *uint64 {
+	return spec.Params.TheMerge.Uint64P()
+}
+
+func (spec *ParityChainSpec) SetMergeVirtualTransition(n *uint64) error {
+	spec.Params.TheMerge = new(ParityU64).SetUint64(n)
 	return nil
 }
 

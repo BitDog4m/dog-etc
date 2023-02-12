@@ -340,7 +340,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 		out.Set(math.BigMax(out, bigMinus99))
 		out.Mul(parent_diff_over_dbd(parent), out)
 		out.Add(out, parent.Difficulty)
-
 	} else if config.IsEnabled(config.GetEIP2Transition, next) {
 		// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
 		// algorithm:
@@ -352,7 +351,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 		out.Set(math.BigMax(out, bigMinus99))
 		out.Mul(parent_diff_over_dbd(parent), out)
 		out.Add(out, parent.Difficulty)
-
 	} else {
 		// FRONTIER
 		// algorithm:
@@ -383,7 +381,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 
 	if config.IsEnabled(config.GetEthashECIP1010PauseTransition, next) {
 		ecip1010Explosion(config, next, exPeriodRef)
-
 	} else if len(config.GetEthashDifficultyBombDelaySchedule()) > 0 {
 		// This logic varies from the original fork-based logic (below) in that
 		// configured delay values are treated as compounding values (-2000000 + -3000000 = -5000000@constantinople)
@@ -397,7 +394,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber.Sub(fakeBlockNumber, dur)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	} else if config.IsEnabled(config.GetEthashEIP5133Transition, next) {
 		// calcDifficultyEip4345 is the difficulty adjustment algorithm as specified by EIP 4345.
 		// It offsets the bomb a total of 10.7M blocks.
@@ -407,7 +403,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, delayWithOffset)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	} else if config.IsEnabled(config.GetEthashEIP4345Transition, next) {
 		// calcDifficultyEip4345 is the difficulty adjustment algorithm as specified by EIP 4345.
 		// It offsets the bomb a total of 10.7M blocks.
@@ -417,7 +412,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, delayWithOffset)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	} else if config.IsEnabled(config.GetEthashEIP3554Transition, next) {
 		// calcDifficultyEIP3554 is the difficulty adjustment algorithm for London (December 2021).
 		// The calculation uses the Byzantium rules, but with bomb offset 9.7M.
@@ -427,7 +421,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, delayWithOffset)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	} else if config.IsEnabled(config.GetEthashEIP2384Transition, next) {
 		// calcDifficultyEIP2384 is the difficulty adjustment algorithm for Muir Glacier.
 		// The calculation uses the Byzantium rules, but with bomb offset 9M.
@@ -437,7 +430,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, delayWithOffset)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	} else if config.IsEnabled(config.GetEthashEIP1234Transition, next) {
 		// calcDifficultyEIP1234 is the difficulty adjustment algorithm for Constantinople.
 		// The calculation uses the Byzantium rules, but with bomb offset 5M.
@@ -453,7 +445,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, delayWithOffset)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	} else if config.IsEnabled(config.GetEthashEIP649Transition, next) {
 		// The calculation uses the Byzantium rules, with bomb offset of 3M.
 		// Specification EIP-649: https://eips.ethereum.org/EIPS/eip-649
@@ -467,7 +458,6 @@ func CalcDifficulty(config ctypes.ChainConfigurator, time uint64, parent *types.
 			fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, delayWithOffset)
 		}
 		exPeriodRef.Set(fakeBlockNumber)
-
 	}
 
 	// EXPLOSION
