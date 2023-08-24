@@ -94,8 +94,8 @@ type handler struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
-	snapSync  uint32 // Flag whether snap sync is enabled (gets disabled if we already have blocks)
-	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	snapSync  atomic.Bool // Flag whether snap sync is enabled (gets disabled if we already have blocks)
+	acceptTxs atomic.Bool // Flag whether we're considered synchronised (enables transaction processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
 	checkpointHash   common.Hash // Block hash for the sync progress validator to cross reference
@@ -153,18 +153,18 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		// * the last snap sync is not finished while user specifies a full sync this
 		//   time. But we don't have any recent state for full sync.
 		// In these cases however it's safe to reenable snap sync.
-		fullBlock, fastBlock := h.chain.CurrentBlock(), h.chain.CurrentFastBlock()
-		if fullBlock.NumberU64() == 0 && fastBlock.NumberU64() > 0 {
-			h.snapSync = uint32(1)
+		fullBlock, snapBlock := h.chain.CurrentBlock(), h.chain.CurrentSnapBlock()
+		if fullBlock.Number.Uint64() == 0 && snapBlock.Number.Uint64() > 0 {
+			h.snapSync.Store(true)
 			log.Warn("Switch sync mode from full sync to snap sync")
 		}
 	} else {
-		if h.chain.CurrentBlock().NumberU64() > 0 {
+		if h.chain.CurrentBlock().Number.Uint64() > 0 {
 			// Print warning log if database is not empty to run snap sync.
 			log.Warn("Switch sync mode from snap sync to full sync")
 		} else {
 			// If snap sync was requested and our database is empty, grant it
-			h.snapSync = uint32(1)
+			h.snapSync.Store(true)
 		}
 	}
 	// If we have trusted checkpoints, enforce them on the chain
@@ -177,20 +177,13 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	success := func() {
 		// If we were running snap sync and it finished, disable doing another
 		// round on next sync cycle
-		if atomic.LoadUint32(&h.snapSync) == 1 {
+		if h.snapSync.Load() {
 			log.Info("Snap sync complete, auto disabling")
-			atomic.StoreUint32(&h.snapSync, 0)
+			h.snapSync.Store(false)
 		}
-		// If we've successfully finished a sync cycle and passed any required
-		// checkpoint, enable accepting transactions from the network
-		head := h.chain.CurrentBlock()
-		if head.NumberU64() >= h.checkpointNumber {
-			// Checkpoint passed, sanity check the timestamp to have a fallback mechanism
-			// for non-checkpointed (number = 0) private networks.
-			if head.Time() >= uint64(time.Now().AddDate(0, -1, 0).Unix()) {
-				atomic.StoreUint32(&h.acceptTxs, 1)
-			}
-		}
+		// If we've successfully finished a sync cycle, accept transactions from
+		// the network
+		h.acceptTxs.Store(true)
 	}
 	// Construct the downloader (long sync)
 	h.downloader = downloader.New(h.checkpointNumber, config.Database, h.eventMux, h.chain, nil, h.removePeer, success)
@@ -199,7 +192,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 			log.Info("Chain post-merge, sync via beacon client")
 		} else {
 			head := h.chain.CurrentBlock()
-			if td := h.chain.GetTd(head.Hash(), head.NumberU64()); td.Cmp(ttd) >= 0 {
+			if td := h.chain.GetTd(head.Hash(), head.Number.Uint64()); td.Cmp(ttd) >= 0 {
 				log.Info("Chain post-TTD, sync via beacon client")
 			} else {
 				log.Warn("Chain pre-merge, sync via PoW (ensure beacon client is ready)")
@@ -228,7 +221,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
 	heighter := func() uint64 {
-		return h.chain.CurrentBlock().NumberU64()
+		return h.chain.CurrentBlock().Number.Uint64()
 	}
 	inserter := func(blocks types.Blocks) (int, error) {
 		// All the block fetcher activities should be disabled
@@ -251,7 +244,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		// the propagated block if the head is too old. Unfortunately there is a corner
 		// case when starting new networks, where the genesis might be ancient (0 unix)
 		// which would prevent full nodes from accepting it.
-		if h.chain.CurrentBlock().NumberU64() < h.checkpointNumber {
+		if h.chain.CurrentBlock().Number.Uint64() < h.checkpointNumber {
 			log.Warn("Unsynced yet, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
@@ -260,7 +253,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		// accept each others' blocks until a restart. Unfortunately we haven't figured
 		// out a way yet where nodes can decide unilaterally whether the network is new
 		// or not. This should be fixed if we figure out a solution.
-		if atomic.LoadUint32(&h.snapSync) == 1 {
+		if h.snapSync.Load() {
 			log.Warn("Snap syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
@@ -289,7 +282,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		}
 		n, err := h.chain.InsertChain(blocks)
 		if err == nil {
-			atomic.StoreUint32(&h.acceptTxs, 1) // Mark initial sync done on any fetcher import
+			h.acceptTxs.Store(true) // Mark initial sync done on any fetcher import
 		}
 		return n, err
 	}
@@ -332,13 +325,13 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 		number  = head.Number.Uint64()
 		td      = h.chain.GetTd(hash, number)
 	)
-	forkID := forkid.NewID(h.chain.Config(), h.chain.Genesis().Hash(), h.chain.CurrentHeader().Number.Uint64())
+	forkID := forkid.NewID(h.chain.Config(), genesis.Hash(), number, head.Time)
 	if err := peer.Handshake(h.networkID, td, hash, genesis.Hash(), forkID, h.forkFilter); err != nil {
 		peer.Log().Debug("Ethereum handshake failed", "err", err)
 		return err
 	}
 	reject := false // reserved peer slots
-	if atomic.LoadUint32(&h.snapSync) == 1 {
+	if h.snapSync.Load() {
 		if snap == nil {
 			// If we are running snap-sync, we want to reserve roughly half the peer
 			// slots for peers supporting the snap protocol.
@@ -412,7 +405,7 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 					// If we're doing a snap sync, we must enforce the checkpoint
 					// block to avoid eclipse attacks. Unsynced nodes are welcome
 					// to connect after we're done joining the network.
-					if atomic.LoadUint32(&h.snapSync) == 1 {
+					if h.snapSync.Load() {
 						peer.Log().Warn("Dropping unsynced node during sync", "addr", peer.RemoteAddr(), "type", peer.Name())
 						res.Done <- errors.New("unsynced node cannot serve sync")
 						return
